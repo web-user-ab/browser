@@ -3,196 +3,168 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Safari-Style Web Browser</title>
+    <title>YouTube Lite</title>
     <style>
-        /* General Styles */
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            background-color: #f5f5f7;
+            background: #f9f9f9;
+            text-align: center;
         }
 
-        /* Tab Bar */
-        #tabBar {
-            display: flex;
-            background: #ececec;
-            padding: 5px;
-            border-bottom: 2px solid #d1d1d1;
-            overflow-x: auto;
-            white-space: nowrap;
-        }
-
-        .tab {
-            background: #ffffff;
-            border: 1px solid #c0c0c0;
-            padding: 5px 15px;
-            margin: 2px;
-            border-radius: 10px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-        }
-
-        .tab.active {
-            background: white;
-            font-weight: bold;
-            border-bottom: 2px solid #007aff;
-        }
-
-        .closeTab {
-            margin-left: 10px;
-            cursor: pointer;
-            color: red;
+        /* Header */
+        #header {
+            background: #ff0000;
+            color: white;
+            padding: 15px;
+            font-size: 20px;
             font-weight: bold;
         }
 
-        /* Toolbar */
-        #toolbar {
-            display: flex;
-            align-items: center;
+        /* Search Bar */
+        #searchBar {
+            margin: 10px;
             padding: 10px;
-            background: #ececec;
-        }
-
-        button {
-            background: none;
-            border: none;
+            width: 80%;
             font-size: 16px;
-            margin: 0 5px;
-            cursor: pointer;
-        }
-
-        input {
-            flex: 1;
-            padding: 5px;
-            font-size: 16px;
-            border: 1px solid #ccc;
+            border: 1px solid #ddd;
             border-radius: 5px;
         }
 
-        /* Browser Frame */
-        .browserFrame {
-            flex: 1;
-            width: 100%;
-            border: none;
+        /* Video Grid */
+        #videoGrid {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            padding: 20px;
+        }
+
+        .video {
+            width: 300px;
+            cursor: pointer;
             background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: 0.3s;
+        }
+
+        .video:hover {
+            transform: scale(1.05);
+        }
+
+        .video img {
+            width: 100%;
+            border-radius: 5px;
+        }
+
+        .videoTitle {
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        /* Video Player */
+        #playerContainer {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 800px;
+            background: black;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        #closePlayer {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 20px;
+            cursor: pointer;
+            color: white;
+        }
+
+        iframe {
+            width: 100%;
+            height: 450px;
+            border: none;
         }
     </style>
 </head>
 <body>
 
-    <!-- Tabs -->
-    <div id="tabBar">
-        <button onclick="newTab()">➕ New Tab</button>
-    </div>
+    <!-- Header -->
+    <div id="header">YouTube Lite</div>
 
-    <!-- Toolbar -->
-    <div id="toolbar">
-        <button onclick="goBack()">◀</button>
-        <button onclick="goForward()">▶</button>
-        <button onclick="reloadPage()">🔄</button>
-        <input id="urlBar" type="text" placeholder="Enter URL..." onkeydown="if(event.key==='Enter') loadPage()">
-        <button onclick="loadPage()">Go</button>
-    </div>
+    <!-- Search Bar -->
+    <input id="searchBar" type="text" placeholder="Search YouTube..." onkeydown="if(event.key==='Enter') searchVideos()">
 
-    <!-- Browser Area -->
-    <div id="browserArea"></div>
+    <!-- Video Grid -->
+    <div id="videoGrid"></div>
+
+    <!-- Video Player -->
+    <div id="playerContainer">
+        <span id="closePlayer" onclick="closePlayer()">✖</span>
+        <iframe id="videoPlayer" allowfullscreen></iframe>
+    </div>
 
     <script>
-        let tabCount = 0;
-        let tabs = [];
+        const apiKey = "YOUR_YOUTUBE_API_KEY";  // Replace this with your YouTube API Key
+        const videoGrid = document.getElementById("videoGrid");
 
-        function newTab(url = "https://www.apple.com") {
-            tabCount++;
-            const tabId = "tab" + tabCount;
-
-            // Create tab button
-            const tab = document.createElement("div");
-            tab.classList.add("tab");
-            tab.id = tabId;
-            tab.innerHTML = `Tab ${tabCount} <span class="closeTab" onclick="closeTab('${tabId}')">✖</span>`;
-            tab.onclick = () => switchTab(tabId);
-            document.getElementById("tabBar").appendChild(tab);
-
-            // Create iframe
-            const iframe = document.createElement("iframe");
-            iframe.classList.add("browserFrame");
-            iframe.id = "frame" + tabCount;
-            iframe.src = formatURL(url);
-            iframe.sandbox = "allow-scripts allow-same-origin allow-forms allow-popups";
-            document.getElementById("browserArea").appendChild(iframe);
-
-            // Save tab data
-            tabs.push({ id: tabId, frameId: iframe.id, url: url });
-            switchTab(tabId);
+        // Load Trending Videos
+        function loadTrendingVideos() {
+            fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&maxResults=12&regionCode=US&key=${apiKey}`)
+            .then(response => response.json())
+            .then(data => displayVideos(data.items));
         }
 
-        function switchTab(tabId) {
-            tabs.forEach(tab => {
-                document.getElementById(tab.id).classList.remove("active");
-                document.getElementById(tab.frameId).style.display = "none";
+        // Search Videos
+        function searchVideos() {
+            const query = document.getElementById("searchBar").value;
+            fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&maxResults=12&type=video&key=${apiKey}`)
+            .then(response => response.json())
+            .then(data => displayVideos(data.items, true));
+        }
+
+        // Display Videos
+        function displayVideos(videos, isSearch = false) {
+            videoGrid.innerHTML = "";  // Clear previous results
+            videos.forEach(video => {
+                const videoId = isSearch ? video.id.videoId : video.id;
+                const title = video.snippet.title;
+                const thumbnail = video.snippet.thumbnails.medium.url;
+
+                const videoElement = document.createElement("div");
+                videoElement.classList.add("video");
+                videoElement.innerHTML = `
+                    <img src="${thumbnail}" alt="${title}">
+                    <div class="videoTitle">${title}</div>
+                `;
+                videoElement.onclick = () => openPlayer(videoId);
+                videoGrid.appendChild(videoElement);
             });
-
-            const activeTab = tabs.find(tab => tab.id === tabId);
-            if (activeTab) {
-                document.getElementById(activeTab.id).classList.add("active");
-                document.getElementById(activeTab.frameId).style.display = "block";
-                document.getElementById("urlBar").value = activeTab.url;
-            }
         }
 
-        function closeTab(tabId) {
-            const tab = tabs.find(t => t.id === tabId);
-            if (!tab) return;
-
-            // Remove tab and frame
-            document.getElementById(tabId).remove();
-            document.getElementById(tab.frameId).remove();
-
-            // Remove from tabs array
-            tabs = tabs.filter(t => t.id !== tabId);
-
-            // Switch to another tab if any are left
-            if (tabs.length > 0) {
-                switchTab(tabs[0].id);
-            }
+        // Open Video Player
+        function openPlayer(videoId) {
+            document.getElementById("playerContainer").style.display = "block";
+            document.getElementById("videoPlayer").src = `https://www.youtube.com/embed/${videoId}`;
         }
 
-        function loadPage() {
-            const url = formatURL(document.getElementById("urlBar").value);
-            const activeTab = tabs.find(tab => document.getElementById(tab.id).classList.contains("active"));
-            if (activeTab) {
-                document.getElementById(activeTab.frameId).src = url;
-                activeTab.url = url;
-            }
+        // Close Video Player
+        function closePlayer() {
+            document.getElementById("playerContainer").style.display = "none";
+            document.getElementById("videoPlayer").src = "";
         }
 
-        function goBack() {
-            const activeTab = tabs.find(tab => document.getElementById(tab.id).classList.contains("active"));
-            if (activeTab) document.getElementById(activeTab.frameId).contentWindow.history.back();
-        }
-
-        function goForward() {
-            const activeTab = tabs.find(tab => document.getElementById(tab.id).classList.contains("active"));
-            if (activeTab) document.getElementById(activeTab.frameId).contentWindow.history.forward();
-        }
-
-        function reloadPage() {
-            const activeTab = tabs.find(tab => document.getElementById(tab.id).classList.contains("active"));
-            if (activeTab) document.getElementById(activeTab.frameId).src = document.getElementById(activeTab.frameId).src;
-        }
-
-        function formatURL(url) {
-            if (!url.startsWith("http")) return "https://" + url;
-            return url;
-        }
-
-        // Open first tab
-        newTab();
+        // Load trending videos on page load
+        loadTrendingVideos();
     </script>
 
 </body>
